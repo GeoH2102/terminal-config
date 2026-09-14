@@ -1,0 +1,45 @@
+# ~/.clang-format
+#
+# Global fallback style for C and C++. clang-format searches upward from the
+# file it is formatting, so a .clang-format in a project root overrides this
+# one for that project.
+#
+# The point of this file is to stop clang-format reflowing argument lists that
+# were broken across lines on purpose:
+#
+#   func(
+#     arg1,
+#     arg2
+#   )
+#
+# Default LLVM style collapses that to func(arg1, arg2) whenever it fits.
+
+BasedOnStyle: LLVM
+
+# The setting that does the work. With a column limit, clang-format reflows
+# anything that fits inside it, which is what collapsed the layout above.
+# 0 means no limit, and clang-format then respects the line breaks already in
+# the file rather than making its own.
+ColumnLimit: 0
+
+# When arguments are on separate lines, put the closing bracket on its own
+# line at the indent of the opening statement, rather than trailing the last
+# argument.
+AlignAfterOpenBracket: BlockIndent
+
+# "Bin packing" means filling each line with as many arguments as fit. Off
+# means once a list breaks, every item gets its own line.
+BinPackArguments: false
+BinPackParameters: false
+
+# Match the 2-space indentation set in ~/.config/nvim/lua/options.lua.
+# ContinuationIndentWidth applies to wrapped lines: LLVM defaults it to 4,
+# which would indent broken arguments further than the surrounding block.
+IndentWidth: 2
+ContinuationIndentWidth: 2
+UseTab: Never
+
+# Keep pointer stars attached to the name: char *argv, not char* argv.
+# This is LLVM's default, written out because it is worth knowing it is a
+# choice rather than a rule of the language.
+PointerAlignment: Right

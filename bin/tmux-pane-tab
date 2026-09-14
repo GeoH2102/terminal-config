@@ -1,0 +1,124 @@
+#!/usr/bin/env bash
+# Give a tmux pane a second "tab": a hidden partner pane you swap into place.
+#
+# tmux has no tabbed panes, because a window's panes are a tiling tree and all
+# of them are visible. This works around that by parking the alternate in a
+# hidden window and calling swap-pane, which preserves the target's geometry
+# exactly. Pane ids stay bound to their processes across a swap, so a pairing
+# recorded once stays valid in both directions.
+#
+# Usage:
+#   tmux-pane-tab toggle [PANE]    swap the pane with its partner
+#   tmux-pane-tab status [PANE]    print the pane's pairing, for debugging
+#   tmux-pane-tab sweep            drop pairings whose partner pane has gone
+#
+# PANE is a tmux pane id such as %3, and defaults to the active pane.
+#
+# Bound to prefix + Tab.
+
+set -euo pipefail
+
+PATH="/opt/homebrew/bin:$PATH"
+
+STASH_WINDOW="_stash"
+
+# The pane to act on. run-shell does NOT set TMUX_PANE, but tmux does expand
+# formats inside a run-shell command string, so the key binding passes the pane
+# id as an argument. The fallbacks keep the script usable by hand.
+current_pane() {
+  if [ -n "${PANE_ARG:-}" ]; then
+    printf '%s\n' "$PANE_ARG"
+  else
+    printf '%s\n' "${TMUX_PANE:-$(tmux display-message -p '#{pane_id}')}"
+  fi
+}
+
+pane_exists() {
+  tmux list-panes -a -F '#{pane_id}' 2>/dev/null | grep -qx "$1"
+}
+
+partner_of() {
+  tmux show-options -p -t "$1" -qv @tab-partner 2>/dev/null || true
+}
+
+# Create a shell in the stash window and pair it with the given pane.
+create_partner() {
+  local pane="$1" session dir new
+
+  session="$(tmux display-message -p -t "$pane" '#{session_name}')"
+  dir="$(tmux display-message -p -t "$pane" '#{pane_current_path}')"
+
+  if tmux list-windows -t "$session" -F '#{window_name}' | grep -qx "$STASH_WINDOW"; then
+    # -d so the split never pulls focus away from the visible window.
+    if ! new="$(tmux split-window -d -t "$session:$STASH_WINDOW" -c "$dir" \
+                 -P -F '#{pane_id}' 2>/dev/null)"; then
+      tmux display-message "pane-tab: stash window is full"
+      return 1
+    fi
+  else
+    tmux new-window -d -t "$session" -n "$STASH_WINDOW" -c "$dir"
+    new="$(tmux list-panes -t "$session:$STASH_WINDOW" -F '#{pane_id}' | head -1)"
+  fi
+
+  # The pairing is mutual, so toggling back works from the swapped-in pane.
+  tmux set-option -p -t "$pane" @tab-partner "$new"
+  tmux set-option -p -t "$new" @tab-partner "$pane"
+
+  printf '%s\n' "$new"
+}
+
+toggle() {
+  local cur partner
+  cur="$(current_pane)"
+  partner="$(partner_of "$cur")"
+
+  # An unset pairing means this pane has no tab yet. A stale one means the
+  # partner's shell exited and its pane went with it; either way, make a new one.
+  if [ -z "$partner" ] || ! pane_exists "$partner"; then
+    partner="$(create_partner "$cur")" || return 1
+  fi
+
+  tmux swap-pane -s "$partner" -t "$cur"
+}
+
+# Clear pairings whose partner pane is gone. A format cannot test whether a
+# pane id is still live, so without this the border marker keeps claiming a tab
+# that has exited. Wired to the pane-exited hook, which reports the active pane
+# rather than the dying one, so this sweeps every pane instead of taking a
+# target.
+sweep() {
+  local live pane partner
+  live="$(tmux list-panes -a -F '#{pane_id}' 2>/dev/null || true)"
+  [ -z "$live" ] && return 0
+
+  while read -r pane; do
+    [ -z "$pane" ] && continue
+    partner="$(partner_of "$pane")"
+    [ -z "$partner" ] && continue
+    if ! printf '%s\n' "$live" | grep -qx "$partner"; then
+      tmux set-option -p -t "$pane" -u @tab-partner 2>/dev/null || true
+    fi
+  done <<< "$live"
+}
+
+status() {
+  local cur partner
+  cur="$(current_pane)"
+  partner="$(partner_of "$cur")"
+  printf 'pane:    %s (%s)\n' "$cur" "$(tmux display-message -p -t "$cur" '#{pane_current_command}')"
+  if [ -n "$partner" ] && pane_exists "$partner"; then
+    printf 'partner: %s (%s)\n' "$partner" "$(tmux display-message -p -t "$partner" '#{pane_current_command}')"
+  else
+    printf 'partner: none\n'
+  fi
+}
+
+PANE_ARG="${2:-}"
+
+case "${1:-}" in
+  toggle) toggle ;;
+  status) status ;;
+  sweep) sweep ;;
+  -h|--help|"") sed -n '2,19p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//' ;;
+  *) echo "tmux-pane-tab: unknown command '$1'" >&2; exit 1 ;;
+esac

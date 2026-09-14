@@ -1,0 +1,38 @@
+# Tools the configs in this repo call. Trimmed on purpose: this is what the
+# environment needs, not a snapshot of one machine. `brew bundle` from
+# install.sh --packages.
+
+# Editor and the things lua/plugins/editor.lua shells out to
+brew "neovim"
+brew "ripgrep"          # fzf-lua live_grep
+brew "fd"               # fzf-lua files
+brew "fzf"              # fzf-lua, and the ts() picker in .zshrc
+brew "lazygit"
+
+# Language servers and formatters (lua/lsp.lua, conform)
+brew "llvm"             # clangd and clang-format; keg-only, .zshrc adds it to PATH
+brew "stylua"
+brew "lua-language-server"
+brew "gopls"
+brew "go"               # gopls needs a toolchain; .zshrc adds ~/go/bin to PATH
+brew "uv"               # `uv tool install ruff ty` runs from install.sh
+
+# Shell (.zshrc)
+brew "starship"
+brew "zoxide"
+brew "eza"
+brew "bat"
+brew "atuin"
+
+# tmux (.tmux.conf, bin/tmux-*)
+brew "tmux"
+brew "tmux-fingers"     # prefix + F, loaded directly rather than via TPM
+brew "sesh"             # bin/tmux-sesh-picker and tmux-dev-layout
+
+# Terminal
+cask "ghostty"
+
+# Not here on purpose:
+#   git    Xcode Command Line Tools provide it
+#   node   managed by nvm, which .zshrc sources from ~/.nvm
+#   vtsls, prettierd   npm packages; see the note install.sh prints

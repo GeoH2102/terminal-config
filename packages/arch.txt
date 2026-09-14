@@ -1,0 +1,43 @@
+# Arch packages for the configs in this repo. One per line; install.sh strips
+# comments and pipes the rest to `pacman -S --needed`.
+#
+# Names checked against the Arch repos by memory rather than by query. If one
+# fails, `pacman -Ss <name>` on the server; AUR-only candidates are listed at
+# the bottom.
+
+# Editor and what it shells out to
+neovim
+git
+base-devel          # a C compiler, for treesitter parsers
+ripgrep
+fd
+fzf
+lazygit
+
+# Language servers and formatters
+clang               # provides clangd and clang-format
+stylua
+lua-language-server
+gopls
+go
+ruff
+uv                  # then `uv tool install ty`; ty is not packaged
+
+# Shell
+zsh
+starship
+zoxide
+eza
+bat
+atuin
+
+# tmux
+tmux
+
+# Not in the official repos. Skip, or install from the AUR if you use them on
+# the server:
+#   sesh          bin/tmux-sesh-picker calls it unconditionally, so prefix + s
+#                 does nothing without it; prefix + S (tmux's own tree) works
+#   tmux-fingers  .tmux.conf's `run 'tmux-fingers load-config'` prints an
+#                 error at startup without it; the rest of the config loads
+#   vtsls, prettierd   npm; only needed for TypeScript work

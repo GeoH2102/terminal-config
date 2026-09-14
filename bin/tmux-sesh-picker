@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+# Fuzzy-pick a tmux session, zoxide directory, or configured project, then
+# attach to it. Bound to prefix + s, run inside a tmux popup.
+
+set -euo pipefail
+
+selected="$(sesh list --icons | fzf \
+  --ansi \
+  --no-sort \
+  --height 100% \
+  --border none \
+  --prompt '  ' \
+  --header 'ctrl-a all  ctrl-t sessions  ctrl-d dirs' \
+  --bind 'ctrl-a:reload(sesh list --icons)' \
+  --bind 'ctrl-t:reload(sesh list -t --icons)' \
+  --bind 'ctrl-d:reload(sesh list -z --icons)')" || exit 0
+
+[ -n "$selected" ] && exec sesh connect "$selected"

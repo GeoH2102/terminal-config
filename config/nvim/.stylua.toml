@@ -1,0 +1,10 @@
+# stylua's defaults are tabs at width 4 and a 120-column limit. Everything in
+# this config is two-space indented, so without this file conform would retab
+# each Lua file the first time you save it.
+#
+# stylua searches upwards from the file being formatted, so this covers
+# everything under ~/.config/nvim/. A project with its own .stylua.toml keeps
+# its own rules.
+indent_type = "Spaces"
+indent_width = 2
+column_width = 120

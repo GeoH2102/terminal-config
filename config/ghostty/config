@@ -1,0 +1,52 @@
+background-opacity=0.3
+background-blur=macos-glass-regular
+font-family="JetBrainsMono NF"
+shell-integration-features = ssh-terminfo,ssh-env
+theme=Everforest Dark Hard
+
+# Shift+Enter inserts a newline in Claude Code instead of submitting.
+# Claude Code's /terminal-setup only writes bindings for iTerm2 and VS Code,
+# which is why this works there and not here. It reads ESC followed by CR
+# (what Alt/Meta+Enter sends) as "insert a line break", so send those two
+# bytes directly. Passes through tmux unchanged.
+keybind = shift+enter=text:\x1b\r
+
+# macOS text-field deletion, made to work inside the terminal.
+#
+# Terminals send bytes, not key events, and there is no standard byte sequence
+# for "Command + Backspace". The sequences below are chosen so Neovim can tell
+# all four apart; lua/keymaps.lua turns them into edits.
+#
+#   alt+backspace  ESC DEL     Neovim reads this as <M-BS>
+#   alt+delete     CSI 3;3~    Neovim reads this as <M-Del>
+#   cmd+backspace  CSI 25~     an unused function key, read as <F13> or <F15>
+#   cmd+delete     CSI 26~     an unused function key, read as <F14> or <F16>
+#
+# The Command pair cannot use the obvious modifier encoding (CSI 3;9~ and
+# CSI 127;9u). Neovim parses those correctly on its own, but tmux 3.7 has no
+# separate Super modifier and folds them into Alt, so Command and Option
+# arrive identical. Unused function keys pass through tmux untouched.
+#
+# On a MacBook, forward delete is fn+backspace, so "alt+delete" here means
+# Option+fn+Backspace.
+keybind = alt+backspace=text:\x1b\x7f
+keybind = alt+delete=text:\x1b[3;3~
+keybind = cmd+backspace=text:\x1b[25~
+keybind = cmd+delete=text:\x1b[26~
+
+# macOS cursor movement in insert mode, alongside the deletion keys above.
+#
+#   alt+left/right   CSI 1;3D / CSI 1;3C, which Neovim reads as <M-Left>
+#                    and <M-Right>. lua/keymaps.lua maps those to b and w.
+#   cmd+left/right   the Home and End sequences. Neovim handles those natively
+#                    in insert mode, so they need no mapping, and zsh binds
+#                    them to beginning-of-line and end-of-line for free.
+#
+# Unlike cmd+backspace and cmd+delete, these two need no function-key trick:
+# Home and End are ordinary keys rather than modifier-encoded ones, so tmux
+# forwards them unchanged. Verified as <Home>/<End> both inside and outside
+# tmux.
+keybind = alt+left=text:\x1b[1;3D
+keybind = alt+right=text:\x1b[1;3C
+keybind = cmd+left=text:\x1b[H
+keybind = cmd+right=text:\x1b[F

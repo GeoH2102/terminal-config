@@ -49,6 +49,21 @@ bindkey -e                    # Emacs key bindings
 bindkey '^[[A' history-search-backward
 bindkey '^[[B' history-search-forward
 
+# Terminal key sequences that emacs mode doesn't bind by default. The Alt+Arrow
+# pair is what ~/.config/ghostty/config sends for Option+Left/Right, so these
+# make that shortcut work at the prompt as well as in Neovim.
+bindkey '^[[H'    beginning-of-line   # Home
+bindkey '^[[F'    end-of-line         # End
+bindkey '^[[1~'   beginning-of-line   # Home, on terminals that send the older form
+bindkey '^[[4~'   end-of-line
+bindkey '^[[3~'   delete-char         # Delete
+bindkey '^[[1;5C' forward-word        # Ctrl+Right
+bindkey '^[[1;5D' backward-word       # Ctrl+Left
+bindkey '^[[1;3C' forward-word        # Alt+Right
+bindkey '^[[1;3D' backward-word       # Alt+Left
+bindkey '^H'      backward-kill-word  # Ctrl+Backspace
+bindkey '^[[3;5~' kill-word           # Ctrl+Delete
+
 # ----- Completion -----
 zstyle ':completion:*' menu select
 zstyle ':completion:*' matcher-list 'm:{a-zA-Z}={A-Za-z}'  # Case insensitive
@@ -229,3 +244,8 @@ ts() {
     tmux attach -t "$session"
   fi
 }
+
+# ----- Machine-local additions -----
+# Anything that belongs to one machine rather than the environment: hardcoded
+# SDK paths, work-only tools, secrets. Untracked by the dotfiles repo.
+[ -f ~/.zshrc.local ] && source ~/.zshrc.local

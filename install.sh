@@ -9,8 +9,8 @@
 #
 # Symlinks rather than copies, so editing ~/.zshrc edits the repo and
 # `git status` shows what changed. Safe to re-run: an existing correct link is
-# left alone, and a real file in the way is moved aside with a .bak suffix
-# rather than deleted.
+# left alone, and a real file in the way is moved aside with a timestamped
+# .bak suffix rather than deleted, so repeated runs never overwrite a backup.
 
 set -euo pipefail
 
@@ -26,8 +26,9 @@ link() {
     return
   fi
   if [ -e "$dst" ] && [ ! -L "$dst" ]; then
-    mv "$dst" "$dst.bak"
-    printf '  moved   %s -> %s.bak\n' "$dst" "$dst"
+    local bak="$dst.bak.$(date +%Y%m%d-%H%M%S)"
+    mv "$dst" "$bak"
+    printf '  moved   %s -> %s\n' "$dst" "$bak"
   fi
   ln -sfn "$src" "$dst"
   printf '  linked  %s\n' "$dst"

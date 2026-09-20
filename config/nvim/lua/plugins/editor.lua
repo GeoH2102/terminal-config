@@ -278,7 +278,10 @@ return {
     "m4xshen/hardtime.nvim",
     dependencies = { "MunifTanjim/nui.nvim" },
     event = "VeryLazy",
-    opts = {},
+    -- Off by default: the nagging cost more than it taught once the basic
+    -- motions had stuck. Still installed, so <leader>tH switches it on for a
+    -- deliberate practice session.
+    opts = { enabled = false },
     keys = {
       { "<leader>tH", "<cmd>Hardtime toggle<cr>", desc = "Toggle hardtime" },
     },

@@ -1,0 +1,207 @@
+#!/usr/bin/env python3
+"""Search Claude Code conversation transcripts with fzf.
+
+Claude Code runs in the terminal's alternate screen, which has no scrollback:
+`tmux display -p '#{history_size}'` on its pane reports 0, so copy-mode search
+only ever sees the screenful in front of you. The conversation itself is on
+disk as JSONL under ~/.claude/projects/<slugified-cwd>/, and that is what this
+searches instead.
+
+    claude-search              every transcript for the current project
+    claude-search auth token   same, with fzf's query pre-filled
+    claude-search -a           every transcript, all projects
+    claude-search -t           include the assistant's thinking blocks
+
+Enter opens the selected message in $EDITOR. Ctrl-C exits.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import re
+import shutil
+import subprocess
+import sys
+import textwrap
+from datetime import datetime
+from pathlib import Path
+
+PROJECTS = Path.home() / ".claude" / "projects"
+
+# Injected context rather than anything a person wrote or Claude said. Matching
+# on it buries the messages you are actually looking for.
+NOISE = re.compile(
+    r"<system-reminder>.*?</system-reminder>"
+    r"|<command-name>.*?</command-name>"
+    r"|<command-message>.*?</command-message>"
+    r"|<command-args>.*?</command-args>"
+    r"|<local-command-stdout>.*?</local-command-stdout>",
+    re.S,
+)
+
+
+def project_dir(start: Path) -> Path | None:
+    """The transcript directory for `start`, or the nearest parent that has one.
+
+    Claude Code names the directory after the working directory it was started
+    in, with every "/" replaced by "-". Walking upwards means the command works
+    from a subdirectory of the project too.
+    """
+    for candidate in [start, *start.parents]:
+        d = PROJECTS / str(candidate).replace("/", "-")
+        if d.is_dir():
+            return d
+    return None
+
+
+def text_of(message: dict, thinking: bool) -> str:
+    content = message.get("content")
+    if isinstance(content, str):
+        return content
+    if not isinstance(content, list):
+        return ""
+    wanted = {"text", "thinking"} if thinking else {"text"}
+    parts = []
+    for block in content:
+        if not isinstance(block, dict) or block.get("type") not in wanted:
+            continue
+        # Thinking blocks store their text under "thinking", not "text".
+        parts.append(block.get("text") or block.get("thinking") or "")
+    return "\n\n".join(p for p in parts if p)
+
+
+def records(files: list[Path], thinking: bool):
+    """Yield (path, line number, timestamp, role, text) for every message."""
+    for path in files:
+        try:
+            handle = path.open(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        with handle:
+            for lineno, line in enumerate(handle, 1):
+                try:
+                    entry = json.loads(line)
+                except (ValueError, TypeError):
+                    continue
+                if entry.get("type") not in ("user", "assistant"):
+                    continue
+                message = entry.get("message")
+                if not isinstance(message, dict):
+                    continue
+                body = NOISE.sub(" ", text_of(message, thinking)).strip()
+                if not body:
+                    continue
+                yield path, lineno, entry.get("timestamp", ""), message.get("role", "?"), body
+
+
+def when(stamp: str) -> str:
+    try:
+        return datetime.fromisoformat(stamp.replace("Z", "+00:00")).astimezone().strftime("%d %b %H:%M")
+    except ValueError:
+        return " " * 12
+
+
+def show(path: str, lineno: str, thinking: bool) -> int:
+    """Print one message in full. Used as the fzf preview."""
+    try:
+        with open(path, encoding="utf-8", errors="replace") as handle:
+            for i, line in enumerate(handle, 1):
+                if i == int(lineno):
+                    entry = json.loads(line)
+                    break
+            else:
+                return 1
+    except (OSError, ValueError):
+        return 1
+
+    message = entry.get("message", {})
+    width = max(40, shutil.get_terminal_size((100, 24)).columns - 2)
+    print(f"{message.get('role', '?')}  ·  {when(entry.get('timestamp', ''))}\n")
+    for para in NOISE.sub(" ", text_of(message, thinking)).split("\n"):
+        print(textwrap.fill(para, width) if para.strip() else "")
+    return 0
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(add_help=True, description=__doc__.split("\n")[0])
+    parser.add_argument("query", nargs="*", help="initial fzf query")
+    parser.add_argument("-a", "--all", action="store_true", help="search every project")
+    parser.add_argument("-t", "--thinking", action="store_true", help="include thinking blocks")
+    # Not for humans: fzf calls back into this to render the preview pane.
+    parser.add_argument("--show", nargs=2, metavar=("FILE", "LINE"), help=argparse.SUPPRESS)
+    args = parser.parse_args()
+
+    if args.show:
+        return show(args.show[0], args.show[1], args.thinking)
+
+    if args.all:
+        files = sorted(PROJECTS.glob("*/*.jsonl"), key=lambda p: p.stat().st_mtime, reverse=True)
+    else:
+        directory = project_dir(Path.cwd().resolve())
+        if directory is None:
+            print(f"claude-search: no transcripts for {Path.cwd()}; try -a", file=sys.stderr)
+            return 1
+        files = sorted(directory.glob("*.jsonl"), key=lambda p: p.stat().st_mtime, reverse=True)
+
+    if not files:
+        print("claude-search: no transcripts found", file=sys.stderr)
+        return 1
+
+    # Newest first, so the message you are looking for is usually near the top
+    # before you have typed anything.
+    rows = list(records(files, args.thinking))
+    rows.reverse()
+
+    lines = []
+    for path, lineno, stamp, role, body in rows:
+        flat = " ".join(body.split())
+        lines.append(f"{path}\t{lineno}\t{when(stamp)}  {role:<9} {flat}")
+
+    preview = f"{Path(sys.argv[0]).resolve()} --show {{1}} {{2}}"
+    if args.thinking:
+        preview += " -t"
+
+    fzf = subprocess.run(
+        [
+            "fzf",
+            "--delimiter", "\t",
+            "--with-nth", "3..",
+            "--query", " ".join(args.query),
+            "--prompt", "transcript  ",
+            "--header", f"{len(lines)} messages in {len(files)} transcript(s)  ·  enter opens in $EDITOR",
+            "--preview", preview,
+            "--preview-window", "right,60%,wrap",
+            "--bind", "ctrl-u:preview-page-up,ctrl-d:preview-page-down",
+        ],
+        input="\n".join(lines),
+        text=True,
+        capture_output=True,
+    )
+    if fzf.returncode != 0 or not fzf.stdout.strip():
+        return 0
+
+    path, lineno, _ = fzf.stdout.rstrip("\n").split("\t", 2)
+    editor = os.environ.get("EDITOR", "nvim")
+    body = subprocess.run(
+        [sys.argv[0], "--show", path, lineno] + (["-t"] if args.thinking else []),
+        capture_output=True,
+        text=True,
+    ).stdout
+    # A pipe would put Neovim's stdin on the pipe rather than the terminal, so
+    # hand it the text through a temporary file instead.
+    import tempfile
+
+    with tempfile.NamedTemporaryFile("w", suffix=".md", delete=False) as tmp:
+        tmp.write(body)
+        name = tmp.name
+    try:
+        subprocess.run([editor, name])
+    finally:
+        os.unlink(name)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -46,6 +46,7 @@ link config/nvim           "$HOME/.config/nvim"
 link bin/tmux-dev-layout   "$HOME/.local/bin/tmux-dev-layout"
 link bin/tmux-pane-tab     "$HOME/.local/bin/tmux-pane-tab"
 link bin/tmux-sesh-picker  "$HOME/.local/bin/tmux-sesh-picker"
+link bin/claude-search     "$HOME/.local/bin/claude-search"
 chmod +x "$DOTFILES"/bin/*
 
 [ "${1:-}" = "--packages" ] || exit 0

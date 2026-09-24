@@ -170,9 +170,14 @@ def main() -> int:
             "--with-nth", "3..",
             "--query", " ".join(args.query),
             "--prompt", "transcript  ",
-            "--header", f"{len(lines)} messages in {len(files)} transcript(s)  ·  enter opens in $EDITOR",
+            "--header", f"{len(lines)} messages · {len(files)} transcript(s) · enter opens · ctrl-l keeps place, clears query",
             "--preview", preview,
             "--preview-window", "right,60%,wrap",
+            # ctrl-l drops the query without losing your place, so you can read
+            # the messages either side of a hit for context. track-current
+            # pins the highlighted row through the list re-expanding, and fzf
+            # releases it again as soon as you move, so browsing stays normal.
+            "--bind", "ctrl-l:track-current+clear-query",
             "--bind", "ctrl-u:preview-page-up,ctrl-d:preview-page-down",
         ],
         input="\n".join(lines),

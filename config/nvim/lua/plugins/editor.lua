@@ -349,6 +349,17 @@ return {
     keys = {
       { "<S-h>", "<cmd>BufferLineCyclePrev<cr>", desc = "Previous buffer" },
       { "<S-l>", "<cmd>BufferLineCycleNext<cr>", desc = "Next buffer" },
+      -- Jump straight to a tab by its number, so where it sits in the bar
+      -- stops mattering once there are more tabs than fit.
+      { "<leader>1", "<cmd>BufferLineGoToBuffer 1<cr>", desc = "Buffer 1" },
+      { "<leader>2", "<cmd>BufferLineGoToBuffer 2<cr>", desc = "Buffer 2" },
+      { "<leader>3", "<cmd>BufferLineGoToBuffer 3<cr>", desc = "Buffer 3" },
+      { "<leader>4", "<cmd>BufferLineGoToBuffer 4<cr>", desc = "Buffer 4" },
+      { "<leader>5", "<cmd>BufferLineGoToBuffer 5<cr>", desc = "Buffer 5" },
+      { "<leader>6", "<cmd>BufferLineGoToBuffer 6<cr>", desc = "Buffer 6" },
+      { "<leader>7", "<cmd>BufferLineGoToBuffer 7<cr>", desc = "Buffer 7" },
+      { "<leader>8", "<cmd>BufferLineGoToBuffer 8<cr>", desc = "Buffer 8" },
+      { "<leader>9", "<cmd>BufferLineGoToBuffer -1<cr>", desc = "Last buffer" },
     },
     opts = {
       options = {
@@ -356,6 +367,20 @@ return {
         offsets = {
           { filetype = "neo-tree", text = "Files", separator = true },
         },
+
+        -- Number every tab, so <leader>N above is usable without counting
+        -- along the bar first.
+        numbers = "ordinal",
+
+        -- Width. bufferline keeps the CURRENT tab visible and drops from
+        -- whichever side is longer (ui.lua:577), so the less each tab costs,
+        -- the more context you keep either side of it. Defaults are tab_size
+        -- 18 and max_name_length 18, generous for names like "bullet.c", and
+        -- the close icons are ~3 columns per tab that <leader>bd already does.
+        tab_size = 12,
+        max_name_length = 14,
+        show_buffer_close_icons = false,
+        show_close_icon = false,
 
         -- bufferline normally registers its groups with `default = true`, so
         -- a colourscheme that defines the same name wins. everforest defines
@@ -382,7 +407,23 @@ return {
       -- transparent hole through the block.
       highlights = {
         buffer_selected = { bg = "#3d484d", fg = "#d3c6aa", bold = true, italic = false },
-        buffer_visible = { bg = "NONE", fg = "#859289" },
+
+        -- "visible" means shown in a window but not focused. It used to match
+        -- the unselected style exactly, which hid the case that matters: when
+        -- the cursor is in neo-tree, NO buffer is current, so bufferline emits
+        -- no buffer_selected at all (ui.lua:184 puts every tab in `before`
+        -- when nothing is current) and the bar looked like nothing was open.
+        -- The file you were last editing is still `visible`, so marking it
+        -- keeps your place on screen while you are in the tree.
+        buffer_visible = { bg = "#323d42", fg = "#d3c6aa", italic = false },
+        numbers_visible = { bg = "#323d42", fg = "#859289" },
+        modified_visible = { bg = "#323d42", fg = "#a7c080" },
+        duplicate_visible = { bg = "#323d42", fg = "#859289", italic = false },
+        diagnostic_visible = { bg = "#323d42" },
+        info_visible = { bg = "#323d42", fg = "#7fbbb3" },
+        hint_visible = { bg = "#323d42", fg = "#a7c080" },
+        warning_visible = { bg = "#323d42", fg = "#dbbc7f" },
+        error_visible = { bg = "#323d42", fg = "#e67e80" },
         indicator_selected = { bg = "#3d484d", fg = "#a7c080" },
         separator_selected = { bg = "#3d484d", fg = "#272e33" },
         modified_selected = { bg = "#3d484d", fg = "#a7c080" },

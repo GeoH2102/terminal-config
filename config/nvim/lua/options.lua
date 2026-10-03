@@ -102,6 +102,19 @@ vim.api.nvim_create_autocmd("FileType", {
 --        rather than cindent's default of two
 --   m1   line a closing paren that starts a line up with the line holding
 --        the matching open paren
+--   j1   documented as "indent Java anonymous classes correctly", meaning a
+--        brace block opened while a paren is still unclosed. A C compound
+--        literal passed straight to a function is that same shape, and sokol
+--        is full of them. Without j1 the closing brace takes the paren
+--        continuation indent from (1s instead of lining up with the call:
+--
+--          sg_begin_pass(&(sg_pass){         sg_begin_pass(&(sg_pass){
+--            .action = 1,            vs        .action = 1,
+--            })                             })
+--
+--        clang-format produces the right-hand form, so without j1 every such
+--        block jumped two columns on save.
+--
 -- Also drop the comment-continuation flags. Neovim's default formatoptions is
 -- "tcqj", but $VIMRUNTIME/ftplugin/c.vim line 24 does `setlocal fo-=t fo+=croql`
 -- for C and C++, and it is the r and o in there that keep extending a comment:
@@ -116,7 +129,7 @@ vim.api.nvim_create_autocmd("FileType", {
 vim.api.nvim_create_autocmd("FileType", {
   pattern = { "c", "cpp" },
   callback = function()
-    vim.bo.cinoptions = "(1s,m1"
+    vim.bo.cinoptions = "(1s,m1,j1"
     vim.bo.formatoptions = vim.bo.formatoptions:gsub("[ro]", "")
   end,
 })

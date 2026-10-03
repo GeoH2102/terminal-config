@@ -98,11 +98,35 @@ end, { expr = true, silent = true, desc = "autopairs backspace" })
 --                                |
 --                              }
 --
--- <CR><Esc>O is the whole trick. <CR> splits the line, leaving the closing
--- bracket at the start of the new one. O then opens a line ABOVE that and
--- enters insert mode, and because O is a normal-mode command it runs the
--- filetype's indent logic. C uses cindent, Lua uses GetLuaIndent(); neither
--- needs anything from this file.
+-- <CR><Esc>==O is the trick. <CR> splits the line, leaving the closing bracket
+-- at the start of the new one. == re-indents that line. O then opens a line
+-- ABOVE it and enters insert mode, and because O is a normal-mode command it
+-- runs the filetype's indent logic for the content line.
+--
+-- The == is there because of C. Splitting inside parens indents the new line
+-- as a continuation, which cinoptions "(1s" puts one shiftwidth in, so the
+-- closing paren lands under the arguments rather than under the call:
+--
+--   DrawThing(          DrawThing(
+--     a, b        vs      a, b
+--     )                 )
+--
+-- cindent knows better: the "m1" in cinoptions (see lua/options.lua) lines a
+-- closing paren up with the line holding its opening paren. That rule fires
+-- through the "0)" entry in 'cinkeys', meaning when ) is TYPED at the start of
+-- a line, and a line split is not typing. == applies it explicitly. Braces
+-- were never affected, only parens and brackets.
+local function newline_in_pair()
+  -- `=` falls back to C-indenting when a buffer has neither 'equalprg' nor
+  -- 'indentexpr' and is not 'cindent'. In a text or markdown buffer that
+  -- indents the closing bracket by four or more columns for no reason, so only
+  -- re-indent where the filetype actually has an opinion.
+  if vim.bo.indentexpr ~= "" or vim.bo.cindent then
+    return "<CR><Esc>==O"
+  end
+  return "<CR><Esc>O"
+end
+
 vim.keymap.set("i", "<CR>", function()
   -- Let the completion menu have the key. Mapping <CR> is the usual way to
   -- break completion, so this guard comes first.
@@ -111,7 +135,7 @@ vim.keymap.set("i", "<CR>", function()
   end
   local before, after = char_before(), char_after()
   if PAIRS[before] == after and after ~= "" then
-    return "<CR><Esc>O"
+    return newline_in_pair()
   end
   return "<CR>"
 end, { expr = true, silent = true, desc = "autopairs newline inside pair" })

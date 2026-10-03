@@ -17,7 +17,56 @@ local map = vim.keymap.set
 map("n", "<Esc>", "<cmd>nohlsearch<CR>", { desc = "Clear search highlight" })
 
 -- Buffers
-map("n", "<leader>bd", "<cmd>bdelete<CR>", { desc = "Delete buffer" })
+--
+-- Close the current buffer and keep the window. Plain :bdelete cannot do this:
+-- from :help :bdelete, "Any windows for this buffer are closed", and it only
+-- spares the window when there is no other listed buffer to switch to. With
+-- neo-tree open that is fatal rather than merely annoying: :bd shuts the file
+-- window, neo-tree becomes the last one, close_if_last_window closes it too,
+-- and Neovim exits with no windows left.
+--
+-- The built-in workaround is `:bp | bd #`, which works but errors with E516 on
+-- the last remaining buffer. This does the same thing and handles that case by
+-- opening an empty buffer, and it uses win_findbuf so a file open in two
+-- splits moves both rather than leaving one behind.
+local function close_buffer(force)
+  local target = vim.api.nvim_get_current_buf()
+
+  local others = {}
+  for _, info in ipairs(vim.fn.getbufinfo({ buflisted = 1 })) do
+    if info.bufnr ~= target then
+      others[#others + 1] = info.bufnr
+    end
+  end
+
+  -- Point the windows elsewhere FIRST, so the delete finds none to close.
+  for _, win in ipairs(vim.fn.win_findbuf(target)) do
+    vim.api.nvim_win_call(win, function()
+      if #others > 0 then
+        vim.cmd("buffer " .. others[#others]) -- most recent, like :bprevious
+      else
+        vim.cmd("enew")
+      end
+    end)
+  end
+
+  local ok, err = pcall(vim.api.nvim_buf_delete, target, { force = force or false })
+  if not ok then
+    -- Unsaved changes, most likely. Put the buffer back so the window is not
+    -- left showing something else while the edit is still open.
+    vim.api.nvim_set_current_buf(target)
+    vim.notify(tostring(err), vim.log.levels.WARN)
+  end
+end
+
+map("n", "<leader>bd", function()
+  close_buffer(false)
+end, { desc = "Close buffer, keep window" })
+
+map("n", "<leader>bD", function()
+  close_buffer(true)
+end, { desc = "Close buffer, discard changes" })
+
 map("n", "<leader>w", "<cmd>write<CR>", { desc = "Write buffer" })
 
 -- Diagnostics

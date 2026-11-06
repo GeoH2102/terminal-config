@@ -14,6 +14,8 @@
 return {
   {
     "coder/claudecode.nvim",
+    -- Load at startup: the lock file has to exist when Claude starts.
+    lazy = false,
     dependencies = { "folke/snacks.nvim" },
     cmd = {
       "ClaudeCode",

@@ -208,6 +208,17 @@ dev() {
 
   session="${session:-$(basename "$PWD" | tr . _)}"
 
+  # Inside Rex, use a Rex session instead. A tmux pane can inherit REX_SESSION,
+  # so an enclosing tmux takes priority. See ~/.local/bin/rex-dev-layout.
+  if [ -n "$REX_SESSION" ] && [ -z "$TMUX" ]; then
+    local sid
+    sid="$(rex-dev-layout "$session" "$profile")" || return
+    # Switching needs Remote Control. Without it, the session is still there.
+    rex do session.select session_id="$sid" ||
+      echo "dev: session '$session' is ready; open it with ctrl+b shift+s" >&2
+    return
+  fi
+
   if tmux has-session -t "$session" 2>/dev/null; then
     if [ -n "$TMUX" ]; then
       tmux switch-client -t "$session"

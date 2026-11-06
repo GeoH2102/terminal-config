@@ -305,6 +305,23 @@ return {
       { "<C-k>", "<cmd>TmuxNavigateUp<cr>", desc = "Go to upper pane" },
       { "<C-l>", "<cmd>TmuxNavigateRight<cr>", desc = "Go to right pane" },
     },
+    -- The plugin only knows about tmux. Inside Rex, move between splits and,
+    -- at the edge of Neovim, ask Rex to move to the next pane. Needs the
+    -- matching action in ~/.config/rex/init.lua.
+    config = function()
+      if vim.env.TMUX or not vim.env.REX_SESSION then
+        return
+      end
+      for key, direction in pairs({ h = "left", j = "down", k = "up", l = "right" }) do
+        vim.keymap.set("n", "<C-" .. key .. ">", function()
+          local win = vim.api.nvim_get_current_win()
+          vim.cmd.wincmd(key)
+          if vim.api.nvim_get_current_win() == win then
+            vim.system({ "rex", "focus", "-s", vim.env.REX_SESSION, "--wrap", direction })
+          end
+        end, { desc = "Go to " .. direction .. " pane" })
+      end
+    end,
   },
 
   -- Keybinding discovery ---------------------------------------------------

@@ -86,6 +86,7 @@ return {
         "markdown_inline",
         "gitcommit",
         "diff",
+        "sql",
         "regex",
         "query",
       })
@@ -217,13 +218,25 @@ return {
         c = { "clang_format" },
         cpp = { "clang_format" },
         lua = { "stylua" },
+        sql = { "pg_format" },
         -- Go: gopls formats via LSP, handled by lsp_format below.
       },
       -- C formatting is governed by ~/.clang-format, which sets ColumnLimit: 0
       -- so clang-format keeps the line breaks you wrote instead of reflowing
       -- argument lists onto one line. A .clang-format in a project root
       -- overrides it for that project.
-      format_on_save = { timeout_ms = 1000, lsp_format = "fallback" },
+      --
+      -- SQL only formats on <leader>cf. Reformatting a migration that has
+      -- already run can break the checksum a migration tool keeps for it.
+      format_on_save = function(bufnr)
+        if vim.bo[bufnr].filetype ~= "sql" then
+          return { timeout_ms = 1000, lsp_format = "fallback" }
+        end
+      end,
+      -- Without it pg_format leaves an empty line at the end of the file.
+      formatters = {
+        pg_format = { prepend_args = { "--no-extra-line" } },
+      },
     },
   },
 

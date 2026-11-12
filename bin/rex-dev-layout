@@ -11,9 +11,13 @@
 # Usage:
 #   rex-dev-layout SESSION [PROFILE]
 #
-# tmux-dev-layout owns the profiles and their detection. The right-hand pane
-# differs from the tmux layout: it runs ipython for python and is a shell for
-# everything else, never a second claude.
+# tmux-dev-layout owns the profiles and their detection. The profile decides the
+# right-hand pane, which differs from the tmux layout:
+#
+#   python        ipython
+#   sql           psql, labelled "sql" so Neovim's <leader>s can send to it
+#   node, generic none: Neovim takes the full width above Claude
+#   c, rust, go   a shell
 
 set -euo pipefail
 
@@ -32,9 +36,14 @@ fi
 [ -n "$profile" ] || profile="$(tmux-dev-layout --detect "$dir")"
 
 right_cmd=""
-if [ "$profile" = python ]; then
-  right_cmd="$(tmux-dev-layout --python-command "$dir")"
-fi
+right_label=""
+case "$profile" in
+  python) right_cmd="$(tmux-dev-layout --python-command "$dir")" ;;
+  # dev-sql-url runs in the pane, so the URL never appears in shell history.
+  # No pager, or the next <leader>s types into it; wide rows go vertical
+  # rather than wrapping in the narrow pane.
+  sql) right_cmd='psql -P pager=off -P expanded=auto "$(dev-sql-url)"' right_label=sql ;;
+esac
 
 # Type into each pane's shell rather than running the program as the pane's
 # command, so quitting the program leaves a prompt, as it does under tmux.
@@ -44,8 +53,8 @@ type_command() {
 }
 
 split() {
-  rex split -s "$sid" -b "$editor" --split="$1" --ratio 40 --focus=false -c "$dir" --json |
-    jq -er '.block_ids[0]'
+  rex split -s "$sid" -b "$editor" --split="$1" --ratio 40 --focus=false -c "$dir" \
+    ${2:+--label "$2"} --json | jq -er '.block_ids[0]'
 }
 
 created="$(rex new "$session" -c "$dir" --window "$profile" --json)"
@@ -60,9 +69,14 @@ bottom="$(split below)"
 sleep 1 # let Neovim write its IDE lock file first
 type_command "$bottom" claude
 
-right="$(split right)"
-if [ -n "$right_cmd" ]; then
-  type_command "$right" "$right_cmd"
-fi
+case "$profile" in
+  node | generic) ;;
+  *)
+    right="$(split right "$right_label")"
+    if [ -n "$right_cmd" ]; then
+      type_command "$right" "$right_cmd"
+    fi
+    ;;
+esac
 
 printf '%s\n' "$sid"

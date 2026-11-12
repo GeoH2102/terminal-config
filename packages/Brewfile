@@ -16,6 +16,10 @@ brew "lua-language-server"
 brew "gopls"
 brew "go"               # gopls needs a toolchain; .zshrc adds ~/go/bin to PATH
 brew "uv"               # `uv tool install ruff ty` runs from install.sh
+brew "pgformatter"      # pg_format
+
+# Postgres: psql for the `dev sql` pane, and the local database it falls back to
+brew "postgresql@16"
 
 # Shell (.zshrc)
 brew "starship"
@@ -36,3 +40,7 @@ cask "ghostty"
 #   git    Xcode Command Line Tools provide it
 #   node   managed by nvm, which .zshrc sources from ~/.nvm
 #   vtsls, prettierd   npm packages; see the note install.sh prints
+#   postgres-language-server   Homebrew's build links libpg_query 18, but 0.28
+#              is written for the Postgres 17 parser and misreads every insert,
+#              update and delete. The GitHub release bundles its own; see the
+#              note install.sh prints

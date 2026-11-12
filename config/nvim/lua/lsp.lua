@@ -83,6 +83,29 @@ vim.lsp.config("lua_ls", {
 })
 
 -- ---------------------------------------------------------------------------
+-- Postgres: completes tables and columns from the database itself
+-- ---------------------------------------------------------------------------
+
+-- The server connects to the same database as the sql pane `dev sql` opens:
+-- see ~/.local/bin/dev-sql-url. It reads DATABASE_URL from its environment, so
+-- no postgres-language-server.jsonc, and no password, lands in a project.
+vim.lsp.config("postgres_lsp", {
+  root_markers = { "postgres-language-server.jsonc", ".git" },
+  workspace_required = false,
+  cmd = function(dispatchers, config)
+    local url = vim.system({ "dev-sql-url", vim.fn.getcwd() }, { text = true }):wait().stdout
+    return vim.lsp.rpc.start({ "postgres-language-server", "lsp-proxy" }, dispatchers, {
+      cwd = config.root_dir,
+      env = { DATABASE_URL = vim.trim(url or "") },
+    })
+  end,
+})
+
+-- The SQL ftplugin that ships with Neovim maps a dozen insert-mode keys under
+-- <C-c> for its own completion, which makes <C-c> wait in SQL buffers.
+vim.g.omni_sql_no_default_maps = 1
+
+-- ---------------------------------------------------------------------------
 -- Switch them on
 -- ---------------------------------------------------------------------------
 
@@ -93,6 +116,7 @@ vim.lsp.enable({
   "clangd", -- C
   "gopls", -- Go
   "lua_ls", -- Lua
+  "postgres_lsp", -- SQL
 })
 
 -- ---------------------------------------------------------------------------

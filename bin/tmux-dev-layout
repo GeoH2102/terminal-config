@@ -25,7 +25,7 @@ set -euo pipefail
 
 PATH="/opt/homebrew/bin:$PATH"
 
-PROFILES="python c rust go node generic"
+PROFILES="python c rust go node sql generic"
 
 self="${BASH_SOURCE[0]}"
 case "$self" in
@@ -35,11 +35,12 @@ esac
 
 # --- Profile detection -------------------------------------------------------
 
-# True when the directory holds at least one .c file. Written as a loop rather
-# than a glob test so it works on the bash 3.2 that macOS ships.
-has_c_sources() {
+# True when the directory holds at least one file with the given extension.
+# Written as a loop rather than a glob test so it works on the bash 3.2 that
+# macOS ships.
+has_files() {
   local f
-  for f in "$1"/*.c; do
+  for f in "$1"/*."$2"; do
     [ -e "$f" ] && return 0
   done
   return 1
@@ -69,9 +70,12 @@ detect_profile() {
     for m in CMakeLists.txt compile_commands.json configure.ac; do
       if [ -f "$dir/$m" ]; then PROFILE=c; return; fi
     done
-    if has_c_sources "$dir"; then PROFILE=c; return; fi
+    if has_files "$dir" c; then PROFILE=c; return; fi
 
     if [ -f "$dir/package.json" ]; then PROFILE=node; return; fi
+
+    # Last, so an app that keeps SQL beside its code stays that app's profile.
+    if has_files "$dir" sql; then PROFILE=sql; return; fi
 
     # Stop at the git root. Outside a repo, stop at $HOME rather than walking
     # to / and picking up a marker from an unrelated parent directory.

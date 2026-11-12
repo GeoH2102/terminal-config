@@ -46,6 +46,7 @@ link config/rex/init.lua   "$HOME/.config/rex/init.lua"
 link config/nvim           "$HOME/.config/nvim"
 link bin/tmux-dev-layout   "$HOME/.local/bin/tmux-dev-layout"
 link bin/rex-dev-layout    "$HOME/.local/bin/rex-dev-layout"
+link bin/dev-sql-url       "$HOME/.local/bin/dev-sql-url"
 link bin/tmux-pane-tab     "$HOME/.local/bin/tmux-pane-tab"
 link bin/tmux-sesh-picker  "$HOME/.local/bin/tmux-sesh-picker"
 link bin/claude-search     "$HOME/.local/bin/claude-search"
@@ -82,6 +83,9 @@ cat <<'EOF'
 
 Done. Still manual:
   - Node (for vtsls and prettierd): install nvm, then `npm install -g @vtsls/language-server @fsouza/prettierd`
+  - postgres-language-server: from GitHub, not Homebrew (see packages/Brewfile).
+    `gh release download VERSION -R supabase-community/postgres-language-server -p 'postgres-language-server_aarch64-apple-darwin'`,
+    check its sha256 against the release page, then install it as ~/.local/bin/postgres-language-server
   - tmux plugins: start tmux and press prefix + I
   - Neovim plugins: start nvim; lazy.nvim installs everything from lazy-lock.json
 EOF

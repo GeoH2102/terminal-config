@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+# Print the database URL for a project: DATABASE_URL from the nearest .env
+# between DIR and its git root, otherwise the local Postgres.
+#
+# Usage:
+#   dev-sql-url [DIR]
+#
+# The sql pane that `dev sql` opens runs psql against this, and Neovim starts
+# the Postgres language server with it, so completion matches the database you
+# are querying. Nothing here prints the URL anywhere but stdout.
+
+set -euo pipefail
+
+dir="$(cd "${1:-$PWD}" && pwd)"
+root="$(git -C "$dir" rev-parse --show-toplevel 2>/dev/null || printf '%s' "$dir")"
+
+while :; do
+  if [ -f "$dir/.env" ]; then
+    url="$(sed -nE 's/^[[:space:]]*(export[[:space:]]+)?DATABASE_URL[[:space:]]*=[[:space:]]*//p' "$dir/.env" | tail -n 1)"
+    url="${url%\"}" url="${url#\"}" url="${url%\'}" url="${url#\'}"
+    if [ -n "$url" ]; then
+      printf '%s\n' "$url"
+      exit 0
+    fi
+  fi
+  if [ "$dir" = "$root" ] || [ "$dir" = / ]; then
+    break
+  fi
+  dir="$(dirname "$dir")"
+done
+
+printf 'postgresql://%s@localhost/postgres\n' "$USER"
